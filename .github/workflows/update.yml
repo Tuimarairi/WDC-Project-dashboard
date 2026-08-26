@@ -1,0 +1,54 @@
+name: Update PCDFWDC Dashboard from KoboToolbox
+
+on:
+  # Run every 10 minutes
+  schedule:
+    - cron: '*/10 * * * *'
+  
+  # Also allow manual trigger from GitHub UI
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+jobs:
+  update-dashboard:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+      
+      - name: Install dependencies
+        run: npm install
+      
+      - name: Update dashboard from KoboToolbox
+        env:
+          KOBO_API_TOKEN: ${{ secrets.KOBO_API_TOKEN }}
+        run: node update-dashboard.js
+      
+      - name: Commit and push changes
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "Dashboard Auto-Update"
+          git add index.html
+          if git diff --quiet HEAD index.html; then
+            echo "No changes to commit"
+          else
+            git commit -m "Dashboard update: $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
+            git push
+          fi
+      
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: .
+          cname: pcdfwdc-dashboard  # Optional: remove if you don't have a custom domain

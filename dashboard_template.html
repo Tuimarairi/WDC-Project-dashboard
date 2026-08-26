@@ -1,0 +1,1201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PCDFWDC Expenditure Dashboard - Free Satellite Map</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #2563eb;
+            --primary-dark: #1e40af;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --mobilised: #8b5cf6;
+            --bg-header: #1f2937;
+            --bg-main: #f9fafb;
+            --bg-card: #ffffff;
+            --text-primary: #111827;
+            --text-secondary: #6b7280;
+            --border: #e5e7eb;
+            --radius: 8px;
+            --gap: 20px;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: var(--bg-main);
+            color: var(--text-primary);
+            line-height: 1.5;
+        }
+
+        .dashboard-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 24px;
+        }
+
+        .dashboard-header {
+            background: var(--bg-header);
+            color: white;
+            padding: 24px;
+            border-radius: var(--radius);
+            margin-bottom: var(--gap);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .dashboard-header h1 {
+            font-size: 24px;
+            font-weight: 700;
+        }
+
+        .header-subtitle {
+            font-size: 12px;
+            color: rgba(255,255,255,0.65);
+            margin-top: 4px;
+            font-weight: 400;
+        }
+
+        .filters {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .filter-group {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .filter-group label {
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        .filter-group select {
+            padding: 8px 12px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            font-size: 13px;
+            cursor: pointer;
+        }
+
+        .filter-group select option {
+            background: var(--bg-header);
+            color: white;
+        }
+
+        .kpi-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: var(--gap);
+            margin-bottom: var(--gap);
+        }
+
+        .kpi-card {
+            background: var(--bg-card);
+            border-radius: var(--radius);
+            padding: 24px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+            border-left: 4px solid var(--primary);
+        }
+
+        .kpi-card.success { border-left-color: var(--success); }
+        .kpi-card.warning { border-left-color: var(--warning); }
+        .kpi-card.danger { border-left-color: var(--danger); }
+
+        .kpi-label {
+            font-size: 13px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+
+        .kpi-value {
+            font-size: 32px;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 6px;
+        }
+
+        .kpi-change {
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--text-secondary);
+        }
+
+        .kpi-change.positive { color: var(--success); }
+        .kpi-change.negative { color: var(--danger); }
+
+        .map-section {
+            background: var(--bg-card);
+            border-radius: var(--radius);
+            padding: 24px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+            margin-bottom: var(--gap);
+        }
+
+        .map-section h3 {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 16px;
+        }
+
+        .map-controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+            align-items: flex-end;
+        }
+
+        .map-control-btn {
+            padding: 8px 14px;
+            border: 1px solid var(--border);
+            background: var(--bg-card);
+            border-radius: 4px;
+            font-size: 12px;
+            cursor: pointer;
+            color: var(--text-primary);
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .map-control-btn:hover {
+            background: var(--bg-main);
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+
+        .map-control-btn.active {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+
+        .map-controls .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            align-items: flex-start;
+        }
+
+        .map-controls .filter-group label {
+            font-size: 12px;
+            font-weight: 600;
+            margin: 0;
+            color: var(--text-primary);
+        }
+
+        .map-controls .filter-group select {
+            margin: 0;
+            padding: 10px 12px;
+            font-size: 13px;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            background: var(--bg-card);
+            color: var(--text-primary);
+            cursor: pointer;
+        }
+
+        .map-controls .filter-group select:hover {
+            border-color: var(--primary);
+        }
+
+        #projectMap {
+            width: 100%;
+            height: 500px;
+            border-radius: 6px;
+            z-index: 1;
+            border: 1px solid var(--border);
+            margin-bottom: 16px;
+        }
+
+        .map-legend {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+            font-size: 12px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .legend-marker {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            border: 2px solid white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .chart-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+            gap: var(--gap);
+            margin-bottom: var(--gap);
+        }
+
+        .chart-container {
+            background: var(--bg-card);
+            border-radius: var(--radius);
+            padding: 24px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+        }
+
+        .chart-container h3 {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 16px;
+        }
+
+        .chart-container canvas {
+            max-height: 300px;
+        }
+
+        .chart-container.tall canvas {
+            max-height: 420px;
+        }
+
+        .table-section {
+            background: var(--bg-card);
+            border-radius: var(--radius);
+            padding: 24px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+            overflow-x: auto;
+        }
+
+        .table-section h3 {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 16px;
+        }
+
+        .table-meta {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-bottom: 12px;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+        .data-table thead th {
+            text-align: left;
+            padding: 12px;
+            border-bottom: 2px solid var(--border);
+            color: var(--text-secondary);
+            font-weight: 600;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            background: #f9fafb;
+            user-select: none;
+            cursor: pointer;
+        }
+
+        .data-table thead th:hover {
+            background: #f3f4f6;
+        }
+
+        .data-table tbody td {
+            padding: 12px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .data-table tbody tr:hover {
+            background: #f9fafb;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            white-space: nowrap;
+        }
+
+        .status-completed {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .status-in-progress {
+            background: #dbeafe;
+            color: #0c4a6e;
+        }
+
+        .status-not-started {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .status-mobilised {
+            background: #ede9fe;
+            color: #5b21b6;
+        }
+
+        .currency {
+            font-family: 'Courier New', monospace;
+            font-weight: 600;
+        }
+
+        .badge {
+            background: #dbeafe;
+            color: #0c4a6e;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .dashboard-footer {
+            text-align: center;
+            padding: 20px;
+            color: var(--text-secondary);
+            font-size: 12px;
+            border-top: 1px solid var(--border);
+            margin-top: var(--gap);
+        }
+
+        /* Leaflet popup styling */
+        .leaflet-popup-content {
+            font-size: 12px !important;
+        }
+
+        .leaflet-popup-content-wrapper {
+            border-radius: 6px !important;
+        }
+
+        .popup-content {
+            font-size: 12px;
+            line-height: 1.5;
+        }
+
+        .popup-content strong {
+            color: var(--primary);
+        }
+
+        .custom-pin {
+            filter: drop-shadow(0 2px 3px rgba(0,0,0,0.3));
+        }
+
+        .custom-pin:hover {
+            filter: drop-shadow(0 2px 6px rgba(0,0,0,0.5));
+        }
+
+        .no-results {
+            text-align: center;
+            padding: 24px;
+            color: var(--text-secondary);
+            font-size: 13px;
+        }
+
+        @media (max-width: 768px) {
+            .dashboard-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .kpi-row {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .chart-row {
+                grid-template-columns: 1fr;
+            }
+
+            .filters {
+                flex-direction: column;
+                width: 100%;
+            }
+
+            .filter-group {
+                width: 100%;
+            }
+
+            .filter-group select {
+                width: 100%;
+            }
+
+            #projectMap {
+                height: 350px;
+            }
+
+            .map-legend {
+                gap: 8px;
+            }
+
+            .map-controls {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .map-control-btn {
+                width: 100%;
+            }
+
+            .map-controls .filter-group {
+                width: 100%;
+                align-items: stretch;
+            }
+
+            .map-controls .filter-group select {
+                width: 100%;
+            }
+
+            .map-controls .filter-group label {
+                font-size: 12px;
+            }
+        }
+
+        @media print {
+            body { background: white; }
+            .dashboard-container { max-width: none; padding: 0; }
+            .filters { display: none; }
+            .chart-container { break-inside: avoid; }
+            #projectMap { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard-container">
+        <header class="dashboard-header">
+            <div>
+                <h1>🛰️ PCDFWDC Expenditure Executive Dashboard</h1>
+                <div class="header-subtitle">8 provinces · 44 wards · 132 project submissions</div>
+            </div>
+            <div class="filters">
+                <div class="filter-group">
+                    <label>Filter by Status:</label>
+                    <select id="statusFilter">
+                        <option value="">All Status</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>Filter by Province:</label>
+                    <select id="provinceFilter">
+                        <option value="">All Provinces</option>
+                    </select>
+                </div>
+            </div>
+        </header>
+
+        <section class="kpi-row">
+            <div class="kpi-card">
+                <div class="kpi-label">Total Projects</div>
+                <div class="kpi-value" id="kpi-total-projects">132</div>
+                <div class="kpi-change" id="kpi-total-projects-detail">34 in progress</div>
+            </div>
+            <div class="kpi-card success">
+                <div class="kpi-label">Completion Rate</div>
+                <div class="kpi-value" id="kpi-completion-rate">15.9%</div>
+                <div class="kpi-change" id="kpi-completion-detail">21 projects completed</div>
+            </div>
+            <div class="kpi-card warning">
+                <div class="kpi-label">Total Expenditure</div>
+                <div class="kpi-value currency" id="kpi-total-expenditure">$439.6K</div>
+                <div class="kpi-change" id="kpi-avg-expenditure">Avg: $17.6K per project</div>
+            </div>
+            <div class="kpi-card danger">
+                <div class="kpi-label">On-Time Performance</div>
+                <div class="kpi-value" id="kpi-on-time">41.7%</div>
+                <div class="kpi-change negative" id="kpi-delayed-detail">77 projects delayed</div>
+            </div>
+        </section>
+
+        <!-- MAP SECTION -->
+        <section class="map-section">
+            <h3>🛰️ Project Locations (Free Open-Source Satellite &amp; Terrain Imagery)</h3>
+
+            <div class="map-controls">
+                <div class="filter-group" style="flex: 1; min-width: 200px;">
+                    <label id="projectFilterLabel">Filter by Project:</label>
+                    <select id="projectFilter">
+                        <option value="">All Projects</option>
+                    </select>
+                </div>
+                <div class="filter-group" style="flex: 1; min-width: 150px;">
+                    <label>Filter by Province:</label>
+                    <select id="mapProvinceFilter">
+                        <option value="">All Provinces</option>
+                    </select>
+                </div>
+                <button class="map-control-btn active" data-layer="satellite" onclick="switchMapLayer('satellite')">🛰️ Satellite</button>
+                <button class="map-control-btn" data-layer="streets" onclick="switchMapLayer('streets')">🗺️ Streets</button>
+                <button class="map-control-btn" data-layer="terrain" onclick="switchMapLayer('terrain')">⛰️ Terrain</button>
+                <button class="map-control-btn" onclick="zoomToAllMarkers()">🎯 Zoom to All</button>
+            </div>
+
+            <div id="projectMap"></div>
+
+            <div class="map-legend">
+                <div class="legend-item">
+                    <svg width="16" height="20" viewBox="0 0 24 32" fill="none" xmlns="http://www.w3.org/2000/svg" style="display: inline-block; vertical-align: middle;">
+                        <path d="M12 0C7.03 0 3 4.03 3 9c0 5.25 9 23 9 23s9-17.75 9-23c0-4.97-4.03-9-9-9z" fill="#f59e0b"/>
+                        <circle cx="12" cy="9" r="3" fill="white"/>
+                    </svg>
+                    <span>Not Started</span>
+                </div>
+                <div class="legend-item">
+                    <svg width="16" height="20" viewBox="0 0 24 32" fill="none" xmlns="http://www.w3.org/2000/svg" style="display: inline-block; vertical-align: middle;">
+                        <path d="M12 0C7.03 0 3 4.03 3 9c0 5.25 9 23 9 23s9-17.75 9-23c0-4.97-4.03-9-9-9z" fill="#8b5cf6"/>
+                        <circle cx="12" cy="9" r="3" fill="white"/>
+                    </svg>
+                    <span>Mobilised</span>
+                </div>
+                <div class="legend-item">
+                    <svg width="16" height="20" viewBox="0 0 24 32" fill="none" xmlns="http://www.w3.org/2000/svg" style="display: inline-block; vertical-align: middle;">
+                        <path d="M12 0C7.03 0 3 4.03 3 9c0 5.25 9 23 9 23s9-17.75 9-23c0-4.97-4.03-9-9-9z" fill="#2563eb"/>
+                        <circle cx="12" cy="9" r="3" fill="white"/>
+                    </svg>
+                    <span>In Progress</span>
+                </div>
+                <div class="legend-item">
+                    <svg width="16" height="20" viewBox="0 0 24 32" fill="none" xmlns="http://www.w3.org/2000/svg" style="display: inline-block; vertical-align: middle;">
+                        <path d="M12 0C7.03 0 3 4.03 3 9c0 5.25 9 23 9 23s9-17.75 9-23c0-4.97-4.03-9-9-9z" fill="#10b981"/>
+                        <circle cx="12" cy="9" r="3" fill="white"/>
+                    </svg>
+                    <span>Completed</span>
+                </div>
+                <div class="legend-item">
+                    <span class="badge">✓ FREE • NO API KEY • OPEN SOURCE</span>
+                </div>
+            </div>
+        </section>
+
+        <section class="chart-row">
+            <div class="chart-container">
+                <h3>Project Status Distribution</h3>
+                <canvas id="statusChart"></canvas>
+            </div>
+            <div class="chart-container tall">
+                <h3>Projects by Province</h3>
+                <canvas id="provinceChart"></canvas>
+            </div>
+        </section>
+
+        <section class="chart-row">
+            <div class="chart-container tall">
+                <h3>Expenditure by Province (SBD)</h3>
+                <canvas id="expenditureChart"></canvas>
+            </div>
+            <div class="chart-container">
+                <h3>Schedule Performance</h3>
+                <canvas id="scheduleChart"></canvas>
+            </div>
+        </section>
+
+        <section class="table-section">
+            <h3>Project Details</h3>
+            <div class="table-meta" id="tableMeta">Showing 132 of 132 projects</div>
+            <table class="data-table" id="projectsTable">
+                <thead>
+                    <tr>
+                        <th onclick="sortTable(0)">Project Name</th>
+                        <th onclick="sortTable(1)">Province</th>
+                        <th onclick="sortTable(2)">Ward</th>
+                        <th onclick="sortTable(3)">Status</th>
+                        <th onclick="sortTable(4)">On Schedule</th>
+                        <th onclick="sortTable(5)">Expenditure</th>
+                    </tr>
+                </thead>
+                <tbody id="projectsTableBody">
+                    <!-- Data populated by JavaScript -->
+                </tbody>
+            </table>
+        </section>
+
+        <footer class="dashboard-footer">
+            <span>Data as of: 2026-08-21 | PCDFWDC Expenditure Form Analysis | 132 of 132 projects mapped with GPS coordinates</span>
+            <br><span style="font-size: 11px; margin-top: 8px;">Satellite: Esri World Imagery • Terrain: OpenTopoMap • Streets: OpenStreetMap • Map by Leaflet.js • No API key required ✓</span>
+        </footer>
+    </div>
+
+    <script>
+        // All Projects Data (source: KoboToolbox export, 2026-08-21)
+        const ALL_PROJECTS = [{"name":"Roman Catholic Church-WASH Sanitation","province":"Central","ward":"Tulagi","status":"Completed","onSchedule":"Yes","expenditure":0.0,"lat":-9.1104669,"lng":160.1535678},{"name":"United Church Sanitation completion","province":"Central","ward":"Tulagi","status":"Completed","onSchedule":"Yes","expenditure":0.0,"lat":-9.1106058,"lng":160.1535699},{"name":"New Classroom-Vakabo","province":"Western","ward":"Bunitusu","status":"Not started","onSchedule":"Yes","expenditure":0.0,"lat":-8.5758475,"lng":157.8775552},{"name":"Water Tank-Seghe","province":"Western","ward":"Bunitusu","status":"Not started","onSchedule":"No","expenditure":0.0,"lat":-8.5633917,"lng":157.884697},{"name":"Admin Cost","province":"Western","ward":"Bunitusu","status":"Not started","onSchedule":"Yes","expenditure":0.0,"lat":-8.5634054,"lng":157.884686},{"name":"Zone 4 Footwalk Bridge","province":"Central","ward":"Tulagi","status":"Completed","onSchedule":"Yes","expenditure":0.0,"lat":-9.1103409,"lng":160.1536682},{"name":"Tulagi mere market stall","province":"Central","ward":"Tulagi","status":"Completed","onSchedule":"Yes","expenditure":0.0,"lat":-9.11035,"lng":160.1536555},{"name":"SSEC Church Sanitation completion","province":"Central","ward":"Tulagi","status":"In Progress","onSchedule":"Yes","expenditure":0.0,"lat":-9.1103274,"lng":160.1537349},{"name":"UC Minister's House-Babanga","province":"Western","ward":"Gizo","status":"Not started","onSchedule":"No","expenditure":0.0,"lat":-8.1030121,"lng":156.8342411},{"name":"UC Chuch Hall-New Manda","province":"Western","ward":"Gizo","status":"Not started","onSchedule":"No","expenditure":0.0,"lat":-8.1028601,"lng":156.8343811},{"name":"Brothers House Hall-Gizo Township","province":"Western","ward":"Gizo","status":"Not started","onSchedule":"No","expenditure":0.0,"lat":-8.1036635,"lng":156.839236},{"name":"Footpath-Nusabaruku","province":"Western","ward":"Gizo","status":"Not started","onSchedule":"No","expenditure":0.0,"lat":-8.102861,"lng":156.8343486},{"name":"Catholic Church Hall-Nusabakuru","province":"Western","ward":"Gizo","status":"Not started","onSchedule":"No","expenditure":0.0,"lat":-8.1028754,"lng":156.8343676},{"name":"Bethany SSEC Church-Titiana/Tsunami","province":"Western","ward":"Gizo","status":"Not started","onSchedule":"No","expenditure":0.0,"lat":-8.1028641,"lng":156.8343067},{"name":"Sanitation Luana-Paelonge","province":"Western","ward":"Gizo","status":"Not started","onSchedule":"No","expenditure":0.0,"lat":-8.1029974,"lng":156.8343163},{"name":"Community Hall-Vorivori","province":"Western","ward":"Gizo","status":"Not started","onSchedule":"No","expenditure":0.0,"lat":-8.1030166,"lng":156.8342384},{"name":"Water Supply (Dam)-Vorivori","province":"Western","ward":"Gizo","status":"Not started","onSchedule":"No","expenditure":0.0,"lat":-8.1030188,"lng":156.8342607},{"name":"Sanitation-Bibolo","province":"Western","ward":"Gizo","status":"Not started","onSchedule":"No","expenditure":0.0,"lat":-8.1029195,"lng":156.8343394},{"name":"Minister's House-Saeraghi","province":"Western","ward":"Gizo","status":"Not started","onSchedule":"No","expenditure":0.0,"lat":-8.1029484,"lng":156.8341914},{"name":"Sanitation-Saeraghi","province":"Western","ward":"Gizo","status":"Not started","onSchedule":"No","expenditure":0.0,"lat":-8.1029208,"lng":156.8342499},{"name":"Admin Cost","province":"Western","ward":"Gizo","status":"Not started","onSchedule":"No","expenditure":0.0,"lat":-8.1028969,"lng":156.8342401},{"name":"Brothers House Hall-Gizo Township","province":"Western","ward":"Gizo","status":"Not started","onSchedule":"No","expenditure":0.0,"lat":-8.1029706,"lng":156.8342743},{"name":"Classroom Maintenance-Lajaka","province":"Western","ward":"Vonunu","status":"In Progress","onSchedule":"Yes","expenditure":0.0,"lat":-7.8085094,"lng":156.6074474},{"name":"Clinic Maintenance-Supato","province":"Western","ward":"Vonunu","status":"Not started","onSchedule":"Yes","expenditure":0.0,"lat":-7.8637646,"lng":156.5930647},{"name":"Riguru Water Pump","province":"Western","ward":"Simbo","status":"Not started","onSchedule":"No","expenditure":0.0,"lat":-8.267893,"lng":156.5446336},{"name":"Malolomo Church Building","province":"Western","ward":"Simbo","status":"Not started","onSchedule":"No","expenditure":0.0,"lat":-8.2556444,"lng":156.5435642},{"name":"Lengana School Staff House","province":"Western","ward":"Simbo","status":"Not started","onSchedule":"No","expenditure":0.0,"lat":-8.2779167,"lng":156.53458},{"name":"Dunde Zone Halls x 6-Dunde","province":"Western","ward":"Nusa Roviana","status":"Not started","onSchedule":"No","expenditure":0.0,"lat":-8.3342106,"lng":157.2797664},{"name":"Admin Cost","province":"Western","ward":"Nusa Roviana","status":"Not started","onSchedule":"No","expenditure":0.0,"lat":-8.3342147,"lng":157.2797494},{"name":"Community High School-Dunde","province":"Western","ward":"Nusa Roviana","status":"Not started","onSchedule":"No","expenditure":0.0,"lat":-8.3341976,"lng":157.2797212},{"name":"Community Jetty-Nusa Roviana","province":"Western","ward":"Nusa Roviana","status":"Not started","onSchedule":"No","expenditure":0.0,"lat":-8.342552,"lng":157.3001892},{"name":"Community Hall-Bebea","province":"Western","ward":"Nusa Roviana","status":"Not started","onSchedule":"No","expenditure":0.0,"lat":-8.3431951,"lng":157.3025661},{"name":"Fisheries-Nusa Roviana","province":"Western","ward":"Nusa Roviana","status":"Not started","onSchedule":"No","expenditure":0.0,"lat":-8.343382,"lng":157.3033933},{"name":"Water Supply-Euckilipters","province":"Western","ward":"Kolobaghea","status":"Mobilised","onSchedule":"No","expenditure":0.0,"lat":-8.2273893,"lng":157.7342414},{"name":"Admin Cost","province":"Western","ward":"Simbo","status":"Not started","onSchedule":"No","expenditure":0.0,"lat":-8.2777104,"lng":156.5346654},{"name":"Admin Cost","province":"Western","ward":"Kusaghe","status":"Not started","onSchedule":"No","expenditure":0.0,"lat":-7.9883304,"lng":157.4236843},{"name":"Community Hall-Buintusu","province":"Western","ward":"Bunitusu","status":"In Progress","onSchedule":"Yes","expenditure":5000.0,"lat":-8.5759546,"lng":157.8775074},{"name":"Smoking area water supply upgrade","province":"Central","ward":"Tulagi","status":"In Progress","onSchedule":"Yes","expenditure":0.0,"lat":-9.4470882,"lng":159.9787717},{"name":"Community Hall-Subolai","province":"Western","ward":"Vonunu","status":"Not started","onSchedule":"Yes","expenditure":0.0,"lat":-7.94152,"lng":156.6495183},{"name":"Voruvoru School st/house Phase 2","province":"Choiseul","ward":"Varisi Lavata","status":"Not started","onSchedule":"No","expenditure":0.0,"lat":-6.7742596,"lng":156.7847006},{"name":"Sanitation for Hutuna, Teloghona and Tegano","province":"Rennel Bellona","ward":"East Tengano","status":"In Progress","onSchedule":"Yes","expenditure":0.0,"lat":-11.754317,"lng":160.4370544},{"name":"Sanitation for Hutuna, Teloghona and Tegano","province":"Rennel Bellona","ward":"East Tengano","status":"In Progress","onSchedule":"Yes","expenditure":0.0,"lat":-11.7782495,"lng":160.4455032},{"name":"Kenani/Nanavule W/Supply Maintnance","province":"Choiseul","ward":"Viviru","status":"Not started","onSchedule":"No","expenditure":0.0,"lat":-7.1318158,"lng":156.8490901},{"name":"15HP OBM-Vurana Community [Rarumana]","province":"Western","ward":"Vonavona","status":"Not started","onSchedule":"No","expenditure":0.0,"lat":-8.1859065,"lng":157.0289878},{"name":"15HP OBM-Niumala","province":"Western","ward":"Vonavona","status":"Not started","onSchedule":"No","expenditure":0.0,"lat":-8.187725,"lng":157.0903674},{"name":"Grass Cutter-Nazareth","province":"Western","ward":"Vonavona","status":"Not started","onSchedule":"No","expenditure":0.0,"lat":-8.2563257,"lng":157.1322613},{"name":"Grass Cutter-Vonga","province":"Western","ward":"Vonavona","status":"Not started","onSchedule":"No","expenditure":0.0,"lat":-8.2583766,"lng":157.135973},{"name":"Minister's House-Kinamara","province":"Western","ward":"Vonavona","status":"Not started","onSchedule":"No","expenditure":0.0,"lat":-8.2639504,"lng":157.1529156},{"name":"15HP OBM-Saika/Kohese","province":"Western","ward":"Vonavona","status":"Not started","onSchedule":"No","expenditure":0.0,"lat":-8.2653465,"lng":157.1667894},{"name":"15HP OBM-Tanaraki","province":"Western","ward":"Vonavona","status":"Not started","onSchedule":"No","expenditure":0.0,"lat":-8.2788276,"lng":157.1807229},{"name":"Kamaqa Water Tank","province":"Choiseul","ward":"Senga","status":"Not started","onSchedule":"No","expenditure":0.0,"lat":-6.9979824,"lng":157.1076808},{"name":"New School Building-Bunikalo","province":"Western","ward":"Gatokae","status":"Not started","onSchedule":"Yes","expenditure":0.0,"lat":-8.6927839,"lng":158.2031175},{"name":"Classroom Santupaele","province":"Western","ward":"North Kolombangara","status":"Not started","onSchedule":"Yes","expenditure":0.0,"lat":-7.9654077,"lng":156.9411215},{"name":"Classroom Patupael","province":"Western","ward":"North Kolombangara","status":"Not started","onSchedule":"Yes","expenditure":0.0,"lat":-7.9608785,"lng":156.9519606},{"name":"Ward 6 – Solar Power","province":"Rennel Bellona","ward":"Mugihenua","status":"Completed","onSchedule":"Yes","expenditure":43600.0,"lat":-11.5517439,"lng":160.0638832},{"name":"Water Tank-Malasova","province":"Western","ward":"Vonunu","status":"Not started","onSchedule":"Yes","expenditure":0.0,"lat":-7.875478,"lng":156.6389709},{"name":"Water Tank-Malasova","province":"Western","ward":"Vonunu","status":"Not started","onSchedule":"Yes","expenditure":0.0,"lat":-7.943967,"lng":156.6477262},{"name":"Luova Parish Solar Light","province":"Temotu","ward":"Lata Louva","status":"Completed","onSchedule":"No","expenditure":31800.0,"lat":-10.7240803,"lng":165.79864},{"name":"Ward 5: Nyivale Jacob Ladder","province":"Temotu","ward":"Manuopo","status":"Not started","onSchedule":"No","expenditure":0.0,"lat":-10.281944,"lng":166.3167405},{"name":"ward 5:Ngamanyie Solar Freezer","province":"Temotu","ward":"Manuopo","status":"Not started","onSchedule":"No","expenditure":0.0,"lat":-10.2819998,"lng":166.3167132},{"name":"Sagasaga Sanitation","province":"Choiseul","ward":"Taba","status":"Not started","onSchedule":"No","expenditure":0.0,"lat":-6.6419169,"lng":156.3975015},{"name":"Ward 5 :St. Alban Ngamanie Solar Project","province":"Temotu","ward":"Manuopo","status":"Mobilised","onSchedule":"Yes","expenditure":0.0,"lat":-10.2819679,"lng":166.3167528},{"name":"Ward 5:Otelo Community solar lights","province":"Temotu","ward":"Manuopo","status":"Mobilised","onSchedule":"Yes","expenditure":0.0,"lat":-10.2819813,"lng":166.3167524},{"name":"Ward 5:Otabwe Church Solar Light","province":"Temotu","ward":"Manuopo","status":"Mobilised","onSchedule":"Yes","expenditure":0.0,"lat":-10.2819964,"lng":166.3167419},{"name":"Brothers House Hall-Gizo Township","province":"Western","ward":"Gizo","status":"In Progress","onSchedule":"No","expenditure":0.0,"lat":-8.1036788,"lng":156.8392597},{"name":"Community Hall-Buintusu","province":"Western","ward":"Bunitusu","status":"Not started","onSchedule":"No","expenditure":0.0,"lat":-8.5758566,"lng":157.8776197},{"name":"New Classroom-Vakabo","province":"Western","ward":"Bunitusu","status":"Not started","onSchedule":"No","expenditure":0.0,"lat":-8.5635734,"lng":157.8861293},{"name":"Water Tank-Seghe","province":"Western","ward":"Bunitusu","status":"Not started","onSchedule":"No","expenditure":0.0,"lat":-8.5758647,"lng":157.8775966},{"name":"Mavunina Catholic Water Tank Project","province":"Guadalcanal","ward":"Wanderer Bay","status":"Not started","onSchedule":"No","expenditure":6954.0,"lat":-9.7400099,"lng":159.8306427},{"name":"Suri Kindergarten Class Room","province":"Choiseul","ward":"Kiruqela","status":"Not started","onSchedule":"Yes","expenditure":0.0,"lat":-7.3143733,"lng":157.3929913},{"name":"Sughu Anglican (St Paul) Completion","province":"Guadalcanal","ward":"Wanderer Bay","status":"In Progress","onSchedule":"No","expenditure":8946.0,"lat":-9.6921459,"lng":159.7185025},{"name":"Tirotonna Ward - Kolofaga shed","province":"Isabel","ward":"Tirotonna","status":"In Progress","onSchedule":"Yes","expenditure":0.0,"lat":-8.1458664,"lng":159.5958498},{"name":"Education Sector Development","province":"Malaita","ward":"Siesie","status":"In Progress","onSchedule":"Yes","expenditure":0.0,"lat":-9.0682529,"lng":160.8066245},{"name":"Tirotonna Ward - Kolofaga shed","province":"Isabel","ward":"Tirotonna","status":"In Progress","onSchedule":"Yes","expenditure":33265.0,"lat":-8.1470282,"lng":159.5963029},{"name":"Tirotonna Ward - Tirotonna Hall (ongoing project)","province":"Isabel","ward":"Tirotonna","status":"In Progress","onSchedule":"Yes","expenditure":10513.0,"lat":-8.1417209,"lng":159.5881282},{"name":"Nareabu rest house","province":"Isabel","ward":"Buala","status":"In Progress","onSchedule":"Yes","expenditure":15000.0,"lat":-8.1423153,"lng":159.588734},{"name":"Buala Momorotu sanitation","province":"Isabel","ward":"Buala","status":"Mobilised","onSchedule":"Yes","expenditure":20000.0,"lat":-8.1424015,"lng":159.5885751},{"name":"Tholana community rest house","province":"Isabel","ward":"Buala","status":"Mobilised","onSchedule":"Yes","expenditure":0.0,"lat":-8.1424935,"lng":159.5889655},{"name":"Tasia Church building;","province":"Isabel","ward":"Buala","status":"Mobilised","onSchedule":"Yes","expenditure":29900.0,"lat":-8.1423286,"lng":159.5886928},{"name":"Nabalue PPY Classroom","province":"Temotu","ward":"Nangu","status":"In Progress","onSchedule":"Yes","expenditure":18900.0,"lat":-10.783976,"lng":166.0471077},{"name":"Kausa Kindy Classroom Building","province":"Guadalcanal","ward":"Avuavu","status":"Not started","onSchedule":"No","expenditure":0.0,"lat":-9.7943658,"lng":160.3512478},{"name":"Longgu Avuavu CHS Staff House","province":"Guadalcanal","ward":"Avuavu","status":"In Progress","onSchedule":"Yes","expenditure":0.0,"lat":-9.8106969,"lng":160.3314432},{"name":"Provide Solar light to communities","province":"Malaita","ward":"Foóndo/Gwaiau","status":"In Progress","onSchedule":"Yes","expenditure":16000.0,"lat":-8.7722794,"lng":160.700441},{"name":"Tengeagea Maneaba Tiling/Fencing","province":"Choiseul","ward":"Wagina","status":"Not started","onSchedule":"No","expenditure":0.0,"lat":-7.4626635,"lng":157.7321016},{"name":"Sanitation Completion","province":"Malaita","ward":"Foóndo/Gwaiau","status":"In Progress","onSchedule":"Yes","expenditure":0.0,"lat":-8.4582748,"lng":160.6499684},{"name":"Operational Costs","province":"Malaita","ward":"Langalanga","status":"Not started","onSchedule":"No","expenditure":0.0,"lat":-8.8795605,"lng":160.7507548},{"name":"Ngalidova SSEC Church Building Hardware Materials","province":"Guadalcanal","ward":"Avuavu","status":"Not started","onSchedule":"No","expenditure":0.0,"lat":-9.8123733,"lng":160.3308802},{"name":"Haimatua Water Supply","province":"Guadalcanal","ward":"Avuavu","status":"Completed","onSchedule":"Yes","expenditure":0.0,"lat":-9.8548265,"lng":160.4082569},{"name":"Avuavu Parish Old Hall Renovation","province":"Guadalcanal","ward":"Avuavu","status":"Not started","onSchedule":"No","expenditure":0.0,"lat":-9.845685,"lng":160.3805435},{"name":"Avuavu DLCP Building Equipment","province":"Guadalcanal","ward":"Avuavu","status":"In Progress","onSchedule":"No","expenditure":0.0,"lat":-9.8430005,"lng":160.3834729},{"name":"Belaha Clinic Staff House Hardware Materials","province":"Guadalcanal","ward":"Malango","status":"Not started","onSchedule":"No","expenditure":0.0,"lat":-9.4744559,"lng":160.0385393},{"name":"Sun Valley Water Supply (Borehole) Project","province":"Guadalcanal","ward":"Malango","status":"Completed","onSchedule":"Yes","expenditure":13000.0,"lat":-9.4293224,"lng":160.0358838},{"name":"Belaga clinic hardware support","province":"Central","ward":"North East Gella","status":"Not started","onSchedule":"No","expenditure":10424.0,"lat":-9.0803849,"lng":160.333731},{"name":"Tavulea Resthouse support","province":"Central","ward":"North East Gella","status":"Not started","onSchedule":"No","expenditure":18380.0,"lat":-9.1011891,"lng":160.3454208},{"name":"Aloha Water Borehole Completion","province":"Guadalcanal","ward":"Savulei","status":"Completed","onSchedule":"No","expenditure":32678.0,"lat":-9.4018196,"lng":159.6040368},{"name":"Belaga clinic hardware support","province":"Central","ward":"North East Gella","status":"In Progress","onSchedule":"No","expenditure":0.0,"lat":-9.0756822,"lng":160.3323361},{"name":"Tavulea Resthouse support","province":"Central","ward":"North East Gella","status":"In Progress","onSchedule":"No","expenditure":0.0,"lat":-9.0909606,"lng":160.3439258},{"name":"Leusalemba Life Skill Department Sewing Machine","province":"Temotu","ward":"Bekapoa","status":"In Progress","onSchedule":"No","expenditure":2960.0,"lat":-10.661056,"lng":165.9116611},{"name":"Sisiaka Water Rehabilitation","province":"Central","ward":"North Savo","status":"Completed","onSchedule":"Yes","expenditure":0.0,"lat":-9.1064366,"lng":159.8019546},{"name":"Vatilau sch staff house (Tathi)","province":"Central","ward":"Sandfly/BuenaVesta","status":"Completed","onSchedule":"Yes","expenditure":0.0,"lat":-8.882929,"lng":160.003471},{"name":"Toga community church building","province":"Central","ward":"Central West Gella","status":"Completed","onSchedule":"Yes","expenditure":0.0,"lat":-9.0418254,"lng":160.0878052},{"name":"Leitongo Foot bridge rehab","province":"Central","ward":"Sandfly/BuenaVesta","status":"Completed","onSchedule":"Yes","expenditure":0.0,"lat":-9.0056426,"lng":160.0741761},{"name":"Haroro community resthouse renovation","province":"Central","ward":"Central West Gella","status":"Not started","onSchedule":"Yes","expenditure":0.0,"lat":-9.025057,"lng":160.1151256},{"name":"Longridge water supply","province":"Central","ward":"North West Gella","status":"In Progress","onSchedule":"No","expenditure":0.0,"lat":-9.0194981,"lng":160.2466664},{"name":"Kolokaboa footwalk Completion","province":"Central","ward":"North West Gella","status":"Not started","onSchedule":"Yes","expenditure":0.0,"lat":-9.0377647,"lng":160.2681704},{"name":"Koilovala Kindy Classroom completion","province":"Central","ward":"South West Gella","status":"In Progress","onSchedule":"No","expenditure":0.0,"lat":-9.191269,"lng":160.2448112},{"name":"Koilovala Clinic Renovation","province":"Central","ward":"South West Gella","status":"In Progress","onSchedule":"No","expenditure":0.0,"lat":-9.1910356,"lng":160.2455349},{"name":"Bokologa Footwalk Bridge completion","province":"Central","ward":"South West Gella","status":"Completed","onSchedule":"No","expenditure":0.0,"lat":-9.1598526,"lng":160.221932},{"name":"Dadala School Staff House completion","province":"Central","ward":"South West Gella","status":"In Progress","onSchedule":"Yes","expenditure":0.0,"lat":-9.1530423,"lng":160.2602167},{"name":"Tabana Church","province":"Central","ward":"South West Gella","status":"Completed","onSchedule":"Yes","expenditure":0.0,"lat":-9.1298375,"lng":160.2732826},{"name":"Tabana Church","province":"Central","ward":"South West Gella","status":"In Progress","onSchedule":"No","expenditure":0.0,"lat":-9.1299112,"lng":160.2733599},{"name":"Taroniara CHS Staff House","province":"Central","ward":"South West Gella","status":"In Progress","onSchedule":"Yes","expenditure":0.0,"lat":-9.1427089,"lng":160.2387582},{"name":"SSEC Church Sanitation completion","province":"Central","ward":"Tulagi","status":"Completed","onSchedule":"Yes","expenditure":0.0,"lat":-9.1103354,"lng":160.1544057},{"name":"United Church Sanitation completion","province":"Central","ward":"Tulagi","status":"Completed","onSchedule":"Yes","expenditure":0.0,"lat":-9.1111649,"lng":160.1555168},{"name":"Zone 4 Footwalk Bridge","province":"Central","ward":"Tulagi","status":"Completed","onSchedule":"Yes","expenditure":0.0,"lat":-9.1092046,"lng":160.1528858},{"name":"Tulagi SDA Church Sanitation facility","province":"Central","ward":"Tulagi","status":"In Progress","onSchedule":"No","expenditure":0.0,"lat":-9.1077481,"lng":160.1467841},{"name":"Mona Primary School classroom design.","province":"Temotu","ward":"Graciosa Bay","status":"Not started","onSchedule":"No","expenditure":0.0,"lat":-10.7531642,"lng":165.8044004},{"name":"Mona Primary School Furniture","province":"Temotu","ward":"Graciosa Bay","status":"Not started","onSchedule":"No","expenditure":0.0,"lat":-10.7538371,"lng":165.805036},{"name":"Neunuglu International Sea Port Land Consultation","province":"Temotu","ward":"Graciosa Bay","status":"Not started","onSchedule":"No","expenditure":0.0,"lat":-10.7617467,"lng":165.8217894},{"name":"Nirle Water Project","province":"Temotu","ward":"Graciosa Bay","status":"In Progress","onSchedule":"Yes","expenditure":19050.0,"lat":-10.7491278,"lng":165.8018239},{"name":"Luepe Water Tank","province":"Temotu","ward":"Graciosa Bay","status":"Not started","onSchedule":"No","expenditure":0.0,"lat":-10.7492049,"lng":165.8017595},{"name":"Lata Parish Solar Light","province":"Temotu","ward":"Lata Louva","status":"Completed","onSchedule":"Yes","expenditure":6545.0,"lat":-10.7253252,"lng":165.7948954},{"name":"Renovation of Poa Clinic","province":"Temotu","ward":"Bekapoa","status":"In Progress","onSchedule":"No","expenditure":29483.2,"lat":-10.7240199,"lng":165.798627},{"name":"Solar Lights for ward churches","province":"Temotu","ward":"Nevenema","status":"Completed","onSchedule":"Yes","expenditure":6000.0,"lat":-10.7239377,"lng":165.7984866},{"name":"Nemba Women Hut","province":"Temotu","ward":"Nevenema","status":"Not started","onSchedule":"No","expenditure":0.0,"lat":-10.7338671,"lng":165.7772387},{"name":"Kokota ward - Rest house Support- Kesuo/Goveo rest House","province":"Isabel","ward":"Kokota","status":"In Progress","onSchedule":"No","expenditure":0.0,"lat":-7.866175,"lng":159.066873},{"name":"Bolitei Rest house","province":"Isabel","ward":"Havulei","status":"In Progress","onSchedule":"Yes","expenditure":29400.0,"lat":-7.849047,"lng":159.019347},{"name":"Zuto Rest House","province":"Isabel","ward":"Havulei","status":"In Progress","onSchedule":"No","expenditure":27050.0,"lat":-7.678437,"lng":158.813761},{"name":"Baolo Community Hall","province":"Isabel","ward":"Havulei","status":"In Progress","onSchedule":"No","expenditure":1250.0,"lat":-7.665747,"lng":158.800643},{"name":"Noole Community Hall","province":"Temotu","ward":"Nea Noole","status":"Not started","onSchedule":"No","expenditure":0.0,"lat":-10.8176356,"lng":165.7916025},{"name":"Nonia Community Hall","province":"Temotu","ward":"Nea Noole","status":"Not started","onSchedule":"No","expenditure":0.0,"lat":-10.8191418,"lng":165.7912457},{"name":"Japuana Ward - Water Supply Project","province":"Isabel","ward":"Japuana","status":"Completed","onSchedule":"Yes","expenditure":3500.0,"lat":-8.517639,"lng":159.794641}];
+
+        // Canonical lifecycle order for statuses / colors (used for filters, legend, charts)
+        const STATUS_ORDER = ['Not started', 'Mobilised', 'In Progress', 'Completed'];
+        const PROVINCE_LIST = [...new Set(ALL_PROJECTS.map(p => p.province))].sort();
+        const PROVINCE_PALETTE = ['#2563eb', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6', '#0ea5e9', '#f472b6', '#84cc16', '#fb923c', '#14b8a6'];
+
+        function getProvinceColor(province) {
+            const idx = PROVINCE_LIST.indexOf(province);
+            return PROVINCE_PALETTE[idx >= 0 ? idx % PROVINCE_PALETTE.length : 0];
+        }
+
+        let filteredProjects = [...ALL_PROJECTS];
+        let map = null;
+        let markerLayer = null;
+        let currentLayer = 'satellite';
+
+        // Color Palette
+        const COLORS = {
+            primary: '#2563eb',
+            success: '#10b981',
+            warning: '#f59e0b',
+            danger: '#ef4444',
+            mobilised: '#8b5cf6',
+            gray: '#6b7280'
+        };
+
+        // Get color based on status
+        function getStatusColor(status) {
+            switch (status) {
+                case 'Completed': return COLORS.success;
+                case 'In Progress': return COLORS.primary;
+                case 'Not started': return COLORS.warning;
+                case 'Mobilised': return COLORS.mobilised;
+                default: return COLORS.gray;
+            }
+        }
+
+        // Initialize Map
+        function initMap() {
+            // Center on the full spread of reported project locations
+            const center = [-9.2101, 161.3571];
+
+            map = L.map('projectMap').setView(center, 6);
+
+            const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-ERP',
+                maxZoom: 18,
+                minZoom: 1
+            });
+
+            const streetLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; OpenStreetMap contributors',
+                maxZoom: 19,
+                minZoom: 1
+            });
+
+            const terrainLayer = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+                attribution: 'Map data: &copy; OpenStreetMap contributors, SRTM | Map style: &copy; OpenTopoMap',
+                maxZoom: 17,
+                minZoom: 1
+            });
+
+            map.satelliteLayer = satelliteLayer;
+            map.streetLayer = streetLayer;
+            map.terrainLayer = terrainLayer;
+
+            satelliteLayer.addTo(map);
+
+            markerLayer = L.featureGroup();
+            markerLayer.addTo(map);
+
+            addMarkersToMap();
+            zoomToAllMarkers();
+        }
+
+        // Switch map layer
+        function switchMapLayer(layer) {
+            if (!map) return;
+
+            if (map.satelliteLayer) map.satelliteLayer.remove();
+            if (map.streetLayer) map.streetLayer.remove();
+            if (map.terrainLayer) map.terrainLayer.remove();
+
+            if (layer === 'satellite' && map.satelliteLayer) {
+                map.satelliteLayer.addTo(map);
+            } else if (layer === 'streets' && map.streetLayer) {
+                map.streetLayer.addTo(map);
+            } else if (layer === 'terrain' && map.terrainLayer) {
+                map.terrainLayer.addTo(map);
+            }
+
+            currentLayer = layer;
+
+            document.querySelectorAll('.map-control-btn[data-layer]').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.layer === layer);
+            });
+        }
+
+        // Zoom to all markers
+        function zoomToAllMarkers() {
+            if (!map || !markerLayer) return;
+
+            const layers = markerLayer.getLayers();
+            if (layers.length === 0) {
+                map.setView([-9.2101, 161.3571], 6);
+                return;
+            }
+
+            try {
+                const group = new L.featureGroup(layers);
+                map.fitBounds(group.getBounds().pad(0.15));
+            } catch (e) {
+                map.setView([-9.2101, 161.3571], 6);
+            }
+        }
+
+        // Add markers to map
+        function addMarkersToMap() {
+            markerLayer.clearLayers();
+
+            filteredProjects.forEach(project => {
+                if (project.lat && project.lng) {
+                    const color = getStatusColor(project.status);
+
+                    const svgPinHtml = `
+                        <svg width="24" height="32" viewBox="0 0 24 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M12 0C7.03 0 3 4.03 3 9c0 5.25 9 23 9 23s9-17.75 9-23c0-4.97-4.03-9-9-9z" fill="${color}"/>
+                            <circle cx="12" cy="9" r="3" fill="white"/>
+                        </svg>
+                    `;
+
+                    const customIcon = L.divIcon({
+                        html: svgPinHtml,
+                        iconSize: [24, 32],
+                        iconAnchor: [12, 32],
+                        popupAnchor: [0, -32],
+                        className: 'custom-pin'
+                    });
+
+                    const marker = L.marker([project.lat, project.lng], { icon: customIcon })
+                        .bindPopup(`
+                            <div class="popup-content">
+                                <strong>${escapeHtml(project.name)}</strong><br>
+                                <small><strong>Province:</strong> ${escapeHtml(project.province)}</small><br>
+                                <small><strong>Ward:</strong> ${escapeHtml(project.ward)}</small><br>
+                                <small><strong>Status:</strong> ${escapeHtml(project.status)}</small><br>
+                                <small><strong>Expenditure:</strong> $${project.expenditure.toLocaleString()}</small><br>
+                                <small><strong>On Schedule:</strong> ${project.onSchedule}</small><br>
+                                <small style="color: #6b7280;"><strong>Lat:</strong> ${project.lat.toFixed(4)}, <strong>Lng:</strong> ${project.lng.toFixed(4)}</small>
+                            </div>
+                        `, {
+                            maxWidth: 300,
+                            className: 'project-popup'
+                        });
+
+                    markerLayer.addLayer(marker);
+                }
+            });
+        }
+
+        function escapeHtml(str) {
+            const div = document.createElement('div');
+            div.textContent = str == null ? '' : str;
+            return div.innerHTML;
+        }
+
+        // Initialize Dashboard
+        function initDashboard() {
+            populateStatusFilter();
+            populateProvinceFilters();
+            initMap();
+            updateKPIs();
+            createCharts();
+            populateTable();
+            setupFilters();
+        }
+
+        function populateStatusFilter() {
+            const sel = document.getElementById('statusFilter');
+            const present = [...new Set(ALL_PROJECTS.map(p => p.status))];
+            const ordered = STATUS_ORDER.filter(s => present.includes(s)).concat(present.filter(s => !STATUS_ORDER.includes(s)));
+            ordered.forEach(s => {
+                const opt = document.createElement('option');
+                opt.value = s;
+                opt.textContent = s;
+                sel.appendChild(opt);
+            });
+        }
+
+        function populateProvinceFilters() {
+            [document.getElementById('provinceFilter'), document.getElementById('mapProvinceFilter')].forEach(sel => {
+                PROVINCE_LIST.forEach(p => {
+                    const opt = document.createElement('option');
+                    opt.value = p;
+                    opt.textContent = p;
+                    sel.appendChild(opt);
+                });
+            });
+        }
+
+        function updateKPIs() {
+            const total = filteredProjects.length;
+            const completed = filteredProjects.filter(p => p.status === 'Completed').length;
+            const inProgress = filteredProjects.filter(p => p.status === 'In Progress').length;
+            const expenditure = filteredProjects.reduce((sum, p) => sum + p.expenditure, 0);
+            const onSchedule = filteredProjects.filter(p => p.onSchedule === 'Yes').length;
+            const delayed = filteredProjects.filter(p => p.onSchedule === 'No').length;
+
+            const completionRate = total > 0 ? ((completed / total) * 100).toFixed(1) : '0.0';
+            const onTimeRate = total > 0 ? ((onSchedule / total) * 100).toFixed(1) : '0.0';
+
+            document.getElementById('kpi-total-projects').textContent = total;
+            document.getElementById('kpi-total-projects-detail').textContent = `${inProgress} in progress`;
+
+            document.getElementById('kpi-completion-rate').textContent = completionRate + '%';
+            document.getElementById('kpi-completion-detail').textContent = `${completed} projects completed`;
+
+            document.getElementById('kpi-total-expenditure').textContent = formatCompactCurrency(expenditure);
+            const withSpend = filteredProjects.filter(p => p.expenditure > 0).length;
+            const avgExp = withSpend > 0 ? expenditure / withSpend : 0;
+            document.getElementById('kpi-avg-expenditure').textContent = `Avg: ${formatCompactCurrency(avgExp)} per project`;
+
+            document.getElementById('kpi-on-time').textContent = onTimeRate + '%';
+            document.getElementById('kpi-delayed-detail').textContent = `${delayed} projects delayed`;
+
+            const tableMeta = document.getElementById('tableMeta');
+            if (tableMeta) {
+                tableMeta.textContent = `Showing ${total} of ${ALL_PROJECTS.length} projects`;
+            }
+        }
+
+        function formatCompactCurrency(value) {
+            if (value >= 1000) return '$' + (value / 1000).toFixed(1) + 'K';
+            return '$' + value.toFixed(0);
+        }
+
+        function createCharts() {
+            createStatusChart();
+            createProvinceChart();
+            createExpenditureChart();
+            createScheduleChart();
+        }
+
+        function createStatusChart() {
+            const present = STATUS_ORDER.filter(s => filteredProjects.some(p => p.status === s));
+            const counts = present.map(s => filteredProjects.filter(p => p.status === s).length);
+            const colors = present.map(s => getStatusColor(s));
+
+            const ctx = document.getElementById('statusChart').getContext('2d');
+            if (window.statusChartInstance) window.statusChartInstance.destroy();
+
+            window.statusChartInstance = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: present,
+                    datasets: [{
+                        data: counts,
+                        backgroundColor: colors,
+                        borderColor: '#fff',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { font: { size: 12 }, padding: 15 } }
+                    }
+                }
+            });
+        }
+
+        function createProvinceChart() {
+            const provinceCounts = {};
+            filteredProjects.forEach(p => {
+                provinceCounts[p.province] = (provinceCounts[p.province] || 0) + 1;
+            });
+            const labels = Object.keys(provinceCounts).sort();
+            const data = labels.map(l => provinceCounts[l]);
+            const colors = labels.map(l => getProvinceColor(l));
+
+            const ctx = document.getElementById('provinceChart').getContext('2d');
+            if (window.provinceChartInstance) window.provinceChartInstance.destroy();
+
+            window.provinceChartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Number of Projects',
+                        data: data,
+                        backgroundColor: colors,
+                        borderRadius: 6,
+                        borderSkipped: false
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    indexAxis: 'y',
+                    scales: {
+                        x: { beginAtZero: true, ticks: { stepSize: 1, precision: 0 } },
+                        y: { ticks: { font: { size: 12 } } }
+                    },
+                    plugins: {
+                        legend: { display: false }
+                    }
+                }
+            });
+        }
+
+        function createExpenditureChart() {
+            const provinceExpenditure = {};
+            filteredProjects.forEach(p => {
+                provinceExpenditure[p.province] = (provinceExpenditure[p.province] || 0) + p.expenditure;
+            });
+            const labels = Object.keys(provinceExpenditure).sort();
+            const data = labels.map(l => provinceExpenditure[l]);
+            const colors = labels.map(l => getProvinceColor(l));
+
+            const ctx = document.getElementById('expenditureChart').getContext('2d');
+            if (window.expenditureChartInstance) window.expenditureChartInstance.destroy();
+
+            window.expenditureChartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Total Expenditure (SBD)',
+                        data: data,
+                        backgroundColor: colors,
+                        borderRadius: 6,
+                        borderSkipped: false
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    indexAxis: 'y',
+                    scales: {
+                        x: { beginAtZero: true }
+                    },
+                    plugins: {
+                        legend: { display: false }
+                    }
+                }
+            });
+        }
+
+        function createScheduleChart() {
+            const onSchedule = filteredProjects.filter(p => p.onSchedule === 'Yes').length;
+            const delayed = filteredProjects.filter(p => p.onSchedule === 'No').length;
+
+            const ctx = document.getElementById('scheduleChart').getContext('2d');
+            if (window.scheduleChartInstance) window.scheduleChartInstance.destroy();
+
+            window.scheduleChartInstance = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['On Schedule', 'Delayed'],
+                    datasets: [{
+                        data: [onSchedule, delayed],
+                        backgroundColor: [COLORS.success, COLORS.danger],
+                        borderColor: '#fff',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { font: { size: 12 }, padding: 15 } }
+                    }
+                }
+            });
+        }
+
+        function populateTable() {
+            const tbody = document.getElementById('projectsTableBody');
+            tbody.innerHTML = '';
+
+            if (filteredProjects.length === 0) {
+                const row = tbody.insertRow();
+                const cellEl = row.insertCell();
+                cellEl.colSpan = 6;
+                cellEl.className = 'no-results';
+                cellEl.textContent = 'No projects match the current filters.';
+                return;
+            }
+
+            filteredProjects.forEach(project => {
+                const row = tbody.insertRow();
+                row.innerHTML = `
+                    <td><strong>${escapeHtml(project.name)}</strong></td>
+                    <td>${escapeHtml(project.province)}</td>
+                    <td>${escapeHtml(project.ward)}</td>
+                    <td><span class="status-badge status-${project.status.toLowerCase().replace(/\s+/g, '-')}">${escapeHtml(project.status)}</span></td>
+                    <td>${project.onSchedule}</td>
+                    <td class="currency">$${project.expenditure.toLocaleString()}</td>
+                `;
+            });
+        }
+
+        function setupFilters() {
+            const statusFilter = document.getElementById('statusFilter');
+            const provinceFilter = document.getElementById('provinceFilter');
+            const mapProvinceFilter = document.getElementById('mapProvinceFilter');
+            const projectFilter = document.getElementById('projectFilter');
+
+            // Each filter gets its own listener; all funnel into one apply function.
+            statusFilter.addEventListener('change', () => {
+                applyAllFilters();
+            });
+
+            provinceFilter.addEventListener('change', () => {
+                mapProvinceFilter.value = provinceFilter.value;
+                populateProjectFilter();
+                applyAllFilters();
+            });
+
+            mapProvinceFilter.addEventListener('change', () => {
+                provinceFilter.value = mapProvinceFilter.value;
+                populateProjectFilter();
+                applyAllFilters();
+            });
+
+            projectFilter.addEventListener('change', () => {
+                applyAllFilters();
+            });
+
+            populateProjectFilter();
+        }
+
+        function populateProjectFilter() {
+            const projectFilter = document.getElementById('projectFilter');
+            const projectFilterLabel = document.getElementById('projectFilterLabel');
+            const selectedProvince = document.getElementById('provinceFilter').value;
+
+            projectFilter.innerHTML = '<option value="">All Projects</option>';
+
+            let projectsToShow = ALL_PROJECTS;
+            if (selectedProvince) {
+                projectsToShow = ALL_PROJECTS.filter(p => p.province === selectedProvince);
+            }
+
+            const uniqueProjects = [...new Set(projectsToShow.map(p => p.name))].sort();
+
+            const provinceText = selectedProvince ? ` in ${selectedProvince}` : '';
+            projectFilterLabel.textContent = `Filter by Project (${uniqueProjects.length})${provinceText}:`;
+
+            uniqueProjects.forEach(projectName => {
+                const option = document.createElement('option');
+                option.value = projectName;
+                option.textContent = projectName;
+                projectFilter.appendChild(option);
+            });
+        }
+
+        function applyAllFilters() {
+            const status = document.getElementById('statusFilter').value;
+            const province = document.getElementById('provinceFilter').value;
+            const projectName = document.getElementById('projectFilter').value;
+
+            filteredProjects = ALL_PROJECTS.filter(p => {
+                const statusMatch = status === '' || p.status === status;
+                const provinceMatch = province === '' || p.province === province;
+                const projectMatch = projectName === '' || p.name === projectName;
+                return statusMatch && provinceMatch && projectMatch;
+            });
+
+            updateKPIs();
+            createCharts();
+            populateTable();
+            addMarkersToMap();
+
+            if (!map) return;
+
+            try {
+                if (projectName !== '' && filteredProjects.length > 0) {
+                    const project = filteredProjects[0];
+                    if (project.lat && project.lng) {
+                        setTimeout(() => {
+                            map.setView([project.lat, project.lng], 13);
+                        }, 100);
+                    }
+                } else if (filteredProjects.length > 0) {
+                    setTimeout(() => {
+                        zoomToFilteredBounds();
+                    }, 100);
+                } else {
+                    zoomToAllMarkers();
+                }
+            } catch (e) {
+                console.log('Zoom error:', e);
+            }
+        }
+
+        function zoomToFilteredBounds() {
+            if (!map) return;
+
+            const projectsWithCoords = filteredProjects.filter(p => p.lat && p.lng);
+
+            if (projectsWithCoords.length === 0) {
+                map.setView([-9.2101, 161.3571], 6);
+                return;
+            }
+
+            try {
+                if (projectsWithCoords.length === 1) {
+                    const p = projectsWithCoords[0];
+                    map.setView([p.lat, p.lng], 13);
+                } else {
+                    let minLat = projectsWithCoords[0].lat;
+                    let maxLat = projectsWithCoords[0].lat;
+                    let minLng = projectsWithCoords[0].lng;
+                    let maxLng = projectsWithCoords[0].lng;
+
+                    projectsWithCoords.forEach(p => {
+                        minLat = Math.min(minLat, p.lat);
+                        maxLat = Math.max(maxLat, p.lat);
+                        minLng = Math.min(minLng, p.lng);
+                        maxLng = Math.max(maxLng, p.lng);
+                    });
+
+                    const bounds = [[minLat, minLng], [maxLat, maxLng]];
+                    map.fitBounds(bounds, { padding: [50, 50] });
+                }
+            } catch (e) {
+                console.log('Zoom bounds error:', e);
+                map.setView([-9.2101, 161.3571], 6);
+            }
+        }
+
+        function sortTable(columnIndex) {
+            const tbody = document.getElementById('projectsTableBody');
+            const rows = Array.from(tbody.querySelectorAll('tr'));
+
+            rows.sort((a, b) => {
+                const aVal = a.cells[columnIndex] ? a.cells[columnIndex].textContent.trim() : '';
+                const bVal = b.cells[columnIndex] ? b.cells[columnIndex].textContent.trim() : '';
+                return aVal.localeCompare(bVal, undefined, { numeric: true });
+            });
+
+            tbody.innerHTML = '';
+            rows.forEach(row => tbody.appendChild(row));
+        }
+
+        // Initialize on page load
+        window.addEventListener('DOMContentLoaded', initDashboard);
+    </script>
+</body>
+</html>

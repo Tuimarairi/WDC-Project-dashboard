@@ -2,7 +2,7 @@
 
 const util = require('../core/util')
 const assert = require('node:assert')
-const { InvalidArgumentError } = require('../core/errors')
+const { InvalidArgumentError, MaxRedirectsError } = require('../core/errors')
 const { kRequestOrigin } = require('../core/symbols')
 
 const redirectableStatusCodes = [300, 301, 302, 303, 307, 308]
@@ -62,10 +62,6 @@ class RedirectHandler {
       return
     }
 
-    if (this.opts.throwOnMaxRedirect && this.history.length >= this.maxRedirections) {
-      throw new Error('max redirects')
-    }
-
     let removeContentHeaders = statusCode === 303
 
     // https://tools.ietf.org/html/rfc7231#section-6.4.2
@@ -91,9 +87,19 @@ class RedirectHandler {
       this.opts.body = null
     }
 
-    this.location = this.history.length >= this.maxRedirections || util.isDisturbed(this.opts.body) || redirectableStatusCodes.indexOf(statusCode) === -1
+    this.location = util.isDisturbed(this.opts.body) || redirectableStatusCodes.indexOf(statusCode) === -1
       ? null
-      : headers.location
+      : headers.location || null
+
+    // Only a redirect that would otherwise be followed counts against the
+    // limit. The final response after exactly maxRedirections redirects, or a
+    // 3xx without a Location header, is delivered as usual.
+    if (this.location && this.history.length >= this.maxRedirections) {
+      if (this.opts.throwOnMaxRedirect) {
+        throw new MaxRedirectsError()
+      }
+      this.location = null
+    }
 
     const requestOrigin = this.opts[kRequestOrigin] === undefined
       ? this.opts.origin

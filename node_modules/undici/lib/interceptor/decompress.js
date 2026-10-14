@@ -1,6 +1,6 @@
 'use strict'
 
-const { createInflate, createGunzip, createBrotliDecompress, createZstdDecompress } = require('node:zlib')
+const { createInflate, createGunzip, createBrotliDecompress, createZstdDecompress, constants } = require('node:zlib')
 const { pipeline, Transform: TransformStream } = require('node:stream')
 const { InvalidArgumentError, ResponseExceededMaxSizeError } = require('../core/errors')
 const DecoratorHandler = require('../handler/decorator-handler')
@@ -63,6 +63,10 @@ class DecompressController {
   }
 }
 
+// `compress` and `x-compress` are deliberately absent. RFC 9110 section
+// 8.4.1.1 defines them as the UNIX compress (LZW) format, which zlib cannot
+// read, so inflating them turns a readable response into a Z_DATA_ERROR.
+// fetch() leaves them alone, and so does this interceptor.
 /** @type {Record<string, () => DecompressorStream>} */
 const supportedEncodings = {
   __proto__: null,
@@ -70,9 +74,8 @@ const supportedEncodings = {
   'x-gzip': createGunzip,
   br: createBrotliDecompress,
   deflate: createInflate,
-  compress: createInflate,
-  'x-compress': createInflate,
-  zstd: createZstdDecompress
+  // https://www.rfc-editor.org/rfc/rfc9659.html#section-3
+  zstd: createZstdDecompress.bind(null, { params: { [constants.ZSTD_d_windowLogMax]: 23 } })
 }
 
 const defaultSkipStatusCodes = /** @type {const} */ ([204, 304])

@@ -92,7 +92,7 @@ export declare namespace Client {
      */
     allowH2?: boolean;
     /**
-     * @description Dictates the maximum number of concurrent streams for a single H2 session. It can be overridden by a SETTINGS remote frame.
+     * @description Dictates the maximum number of concurrent streams for a single H2 session. The server's SETTINGS_MAX_CONCURRENT_STREAMS can lower it, but not raise it.
      * @default 100
      * @deprecated Use h2Options.maxConcurrentStreams instead
      */
@@ -119,6 +119,8 @@ export declare namespace Client {
      * @description HTTP/2 configuration options
      */
     h2Options?: Client.H2Options;
+    /** @experimental Enables the experimental Milo HTTP/1 parser for this client. Defaults to the `UNDICI_USE_MILO` environment variable. */
+    useMilo?: boolean;
   }
   export interface SocketInfo {
     localAddress?: string
@@ -157,7 +159,7 @@ export declare namespace Client {
      */
     pingInterval?: number;
     /**
-     * @description Dictates the maximum number of concurrent streams for a single H2 session. It can be overridden by a SETTINGS remote frame.
+     * @description Dictates the maximum number of concurrent streams for a single H2 session. The server's SETTINGS_MAX_CONCURRENT_STREAMS can lower it, but not raise it.
      * @default 100
     */
     maxConcurrentStreams?: number;

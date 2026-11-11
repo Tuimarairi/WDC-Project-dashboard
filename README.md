@@ -2,7 +2,7 @@
 
 A live dashboard that automatically pulls ward development committee expenditure data from KoboToolbox every 10 minutes and publishes it to GitHub Pages.
 
-**Live Dashboard:** `https://Tuimarairi.github.io/pcdfwdc-dashboard/`
+**Live Dashboard:** `[https://tuimarairi.github.io/WDC-Project-dashboard/`
 
 ---
 

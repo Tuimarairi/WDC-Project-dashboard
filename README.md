@@ -1,8 +1,18 @@
-# PCDFWDC Dashboard — Live KoboToolbox Integration
+# PCDFWDC Dashboard — retired
 
-A live dashboard that automatically pulls ward development committee expenditure data from KoboToolbox every 10 minutes and publishes it to GitHub Pages.
+> **This dashboard has moved to https://wdc-dashboard-production.up.railway.app**
+>
+> The new version updates live from KoboToolbox and fixes several data issues in this one
+> (missed receipts, mixed-up forms, status and schedule counts). As of 20 Nov 2026 the automatic
+> update workflow here has been removed, and the GitHub Pages address
+> (`https://tuimarairi.github.io/WDC-Project-dashboard/`) now redirects to the new dashboard.
+> The content below is kept for reference only.
 
-**Live Dashboard:** `[https://tuimarairi.github.io/WDC-Project-dashboard/`
+---
+
+## Original description
+
+A dashboard that pulled ward development committee expenditure data from KoboToolbox every 10 minutes and published it to GitHub Pages.
 
 ---
 
